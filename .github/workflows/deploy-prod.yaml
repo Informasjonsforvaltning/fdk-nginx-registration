@@ -38,7 +38,6 @@ jobs:
             helm repo add fdk https://informasjonsforvaltning.github.io/helm-chart/
             helm fetch --untar --untardir ./helm fdk/fdk-nginx-registration
             helm template --set DOCKER_IMAGE_NAME="eu.gcr.io/fdk-infra/fdk-nginx-registration:$GITHUB_SHA" -f ./helm/fdk-nginx-registration/values/production.yaml ./helm/fdk-nginx-registration/ > ./kubectlapply.yaml
-            cat ./kubectlapply.yaml
             chmod o+w ./kubectlapply.yaml
             cat kubectlapply.yaml
 
