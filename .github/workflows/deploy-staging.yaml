@@ -13,13 +13,13 @@ jobs:
     if: github.event.pull_request.draft == false
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@master
+        uses: google-github-actions/auth@v0
         with:
-          service_account_email: ${{ secrets.GCP_SA_DIGDIR_FDK_GCR_EMAIL }}
-          service_account_key: ${{ secrets.GCP_SA_DIGDIR_FDK_GCR_KEY }}
+          credentials_json: ${{ secrets.GCP_SA_DIGDIR_FDK_GCR_KEY }}
 
       - name: Configure docker to use the gcloud command-line tool as a credential helper
         run: gcloud auth configure-docker eu.gcr.io
@@ -38,20 +38,20 @@ jobs:
           chmod o+w ./kubectlapply.yaml
           cat kubectlapply.yaml
 
-      - name: Get kubeconfig file from GKE
-        uses: machine-learning-apps/gke-kubeconfig@master
+      - name: Auth gcloud CLI for deploy
+        uses: google-github-actions/auth@v0
         with:
-          application_credentials: ${{ secrets.DIGDIR_FDK_DEV_AUTODEPLOY }}
-          project_id: digdir-fdk-dev
-          location_zone: europe-north1-a
-          cluster_name: digdir-fdk-dev
+          credentials_json: ${{ secrets.DIGDIR_FDK_DEV_AUTODEPLOY }}
 
-      - name: Deploy to staging
-        uses: docker://bitnami/kubectl:latest
-        env:
-          KUBECONFIG: '/github/workspace/.kube/config'
-        with:
-          args: "apply -f ./kubectlapply.yaml --force"
+      - name: Deploy to GCP & check status
+        run: |
+          gcloud container clusters get-credentials digdir-fdk-dev --region europe-north1-a --project digdir-fdk-dev
+          kubectl apply -f ./kubectlapply.yaml --force
+          if ! kubectl --namespace=staging rollout status deployment fdk-nginx-registration; then
+          kubectl --namespace=staging rollout undo deployment fdk-nginx-registration
+          kubectl --namespace=staging rollout status deployment fdk-nginx-registration
+          exit 1
+          fi
 
       - name: Notify slack
         uses: 8398a7/action-slack@v3
